@@ -1,0 +1,32 @@
+{
+  "name": "request-management-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "prestart": "node scripts/validate-runtime-config.js",
+    "db:prepare": "prisma generate && node scripts/prepare-telegram-schema.js && prisma db push --accept-data-loss",
+    "start": "node server.js",
+    "build": "prisma generate",
+    "superadmin:reset-password": "node scripts/reset-super-admin-password.js",
+    "test": "node --test test/approval-workflow.test.js test/telegram-auth.test.js test/monthly-report.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "node-cron": "^4.6.0",
+    "pdfkit": "^0.20.2",
+    "prisma": "^5.22.0"
+  }
+}

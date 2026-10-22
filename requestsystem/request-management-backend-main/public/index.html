@@ -1,0 +1,2351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Requests System</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        :root {
+            --bg-main: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --text-dark: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 16px; background: var(--bg-main); color: var(--text-dark); }
+        body.login-screen {
+            min-height: 100vh;
+            overflow-x: hidden;
+            background:
+                radial-gradient(ellipse at 50% 16%, rgba(99,102,241,0.24), transparent 42%),
+                radial-gradient(ellipse at 12% 82%, rgba(14,165,233,0.12), transparent 34%),
+                #070b18;
+        }
+        body.admin-screen,
+        body.dashboard-screen {
+            min-height: 100vh;
+            background:
+                radial-gradient(ellipse at 8% 4%, rgba(99,102,241,0.16), transparent 32%),
+                radial-gradient(ellipse at 92% 42%, rgba(14,165,233,0.09), transparent 30%),
+                linear-gradient(145deg, #080d1b 0%, #0f172a 48%, #111827 100%);
+            color: #f8fafc;
+        }
+        #authSection {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+        }
+        #authSection::before, #authSection::after {
+            position: absolute;
+            z-index: -1;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            content: "";
+            filter: blur(85px);
+            opacity: 0.55;
+            pointer-events: none;
+        }
+        #authSection::before {
+            top: 40px;
+            left: calc(50% - 370px);
+            background: rgba(42,171,238,0.32);
+        }
+        #authSection::after {
+            right: calc(50% - 370px);
+            bottom: 10px;
+            background: rgba(129,140,248,0.32);
+        }
+        body.login-screen .container {
+            background:
+                linear-gradient(145deg, rgba(30,41,59,0.76), rgba(15,23,42,0.62));
+            border-color: rgba(255,255,255,0.12);
+            box-shadow: 0 24px 70px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.05);
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+        }
+        body.admin-screen .container {
+            background:
+                radial-gradient(ellipse at 85% 0%, rgba(99,102,241,0.1), transparent 35%),
+                rgba(15,23,42,0.78);
+            border-color: rgba(255,255,255,0.12);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+        }
+        body.admin-screen .card,
+        body.dashboard-screen .card {
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.045), transparent 55%),
+                rgba(17,27,47,0.82);
+            border-color: rgba(148,163,184,0.2);
+            box-shadow: 0 14px 36px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.045);
+        }
+        body.admin-screen .request-item,
+        body.dashboard-screen .request-item {
+            background: linear-gradient(145deg, rgba(30,41,59,0.92), rgba(15,23,42,0.92));
+            border-color: rgba(99,102,241,0.28);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.035);
+        }
+        .container { max-width: 1100px; background: var(--card-bg); padding: 35px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin: 20px auto; border: 1px solid var(--border-color); }
+        .header-title { color: var(--text-dark); font-size: 26px; font-weight: 700; margin-bottom: 25px; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; }
+        
+        h3 { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; color: var(--text-dark); margin-top: 0; font-size: 18px; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0 16px 0; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; font-size: 14px; background: #0f172a; color: #fff; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+        
+        button { background: var(--primary); color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 8px; font-weight: 600; font-size: 14px; transition: background 0.2s; }
+        button:hover { background: var(--primary-hover); }
+        button:disabled { cursor: not-allowed; opacity: 0.65; }
+        :focus-visible { outline: 2px solid #a5b4fc; outline-offset: 3px; }
+        
+        .card { background: #1e293b; padding: 25px; border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .feedback-launcher {
+            position: fixed;
+            z-index: 20;
+            right: 24px;
+            bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.28);
+            border-radius: 999px;
+            padding: 13px 20px;
+            background: linear-gradient(135deg, #818cf8, #4f46e5);
+            box-shadow: 0 12px 32px rgba(79,70,229,0.42), inset 0 1px 0 rgba(255,255,255,0.3);
+            color: #fff;
+            font-size: 15px;
+        }
+        .feedback-launcher:hover { transform: translateY(-2px); }
+        .feedback-modal {
+            position: fixed;
+            z-index: 30;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(2,6,23,0.72);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+        .feedback-dialog {
+            position: relative;
+            width: min(100%, 500px);
+            padding: 28px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 20px;
+            background:
+                radial-gradient(ellipse at 90% 0%, rgba(129,140,248,0.2), transparent 45%),
+                linear-gradient(145deg, rgba(30,41,59,0.94), rgba(15,23,42,0.94));
+            box-shadow: 0 28px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12);
+            -webkit-backdrop-filter: blur(28px) saturate(150%);
+            backdrop-filter: blur(28px) saturate(150%);
+        }
+        .feedback-dialog h2 { margin: 0 36px 8px 0; font-size: 23px; }
+        .feedback-dialog p { margin: 0 0 22px; color: var(--text-muted); }
+        .feedback-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 7px 11px;
+            background: rgba(255,255,255,0.09);
+            font-size: 20px;
+        }
+        .feedback-stars { display: flex; gap: 8px; margin: 7px 0 4px; }
+        .feedback-star {
+            padding: 2px;
+            background: transparent;
+            color: #64748b;
+            font-size: 34px;
+            line-height: 1;
+        }
+        .feedback-star:hover { background: transparent; }
+        .feedback-star.is-selected { color: #fbbf24; }
+        .feedback-rating-label { min-height: 20px; color: var(--text-muted); font-size: 13px; }
+        .feedback-dialog textarea { min-height: 130px; resize: vertical; }
+        .feedback-submit { width: 100%; margin-top: 5px; }
+        .feedback-toast {
+            position: fixed;
+            z-index: 40;
+            right: 24px;
+            bottom: 86px;
+            max-width: min(420px, calc(100vw - 48px));
+            padding: 14px 18px;
+            border: 1px solid rgba(74,222,128,0.4);
+            border-radius: 12px;
+            background: rgba(15,23,42,0.94);
+            box-shadow: 0 12px 34px rgba(0,0,0,0.35);
+            color: #bbf7d0;
+        }
+        .feedback-toast.is-error {
+            border-color: rgba(248,113,113,0.45);
+            color: #fecaca;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        #userManagementCard {
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.065), transparent 45%),
+                rgba(15,23,42,0.68) !important;
+            border-color: rgba(255,255,255,0.14) !important;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.09) !important;
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+        }
+
+        .auth-wrapper {
+            position: relative;
+            isolation: isolate;
+            max-width: 440px;
+            margin: 50px auto;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 18px;
+            background:
+                radial-gradient(ellipse at 50% 0%, rgba(129,140,248,0.19), transparent 56%),
+                linear-gradient(145deg, rgba(255,255,255,0.075), transparent 42%),
+                rgba(255,255,255,0.07);
+            box-shadow: 0 28px 80px rgba(0,0,0,0.58), 0 0 44px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.16);
+            -webkit-backdrop-filter: blur(40px) saturate(150%);
+            backdrop-filter: blur(40px) saturate(150%);
+        }
+        .auth-wrapper::before {
+            position: absolute;
+            z-index: 2;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: 1px;
+            content: "";
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.72), transparent);
+            pointer-events: none;
+        }
+        .auth-tabs { display: flex; background: rgba(2,6,23,0.28); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .auth-tab-btn { flex: 1; padding: 16px; text-align: center; background: transparent; color: var(--text-muted); border: none; font-weight: 600; cursor: pointer; }
+        .auth-tab-btn.active { background: rgba(255,255,255,0.04); color: #c7d2fe; border-bottom: 3px solid #818cf8; }
+        .auth-content { padding: 30px; }
+        .auth-content input, .auth-content select {
+            border-color: rgba(255,255,255,0.13);
+            background: rgba(2,6,23,0.36);
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .auth-content input::placeholder { color: rgba(203,213,225,0.58); }
+        .auth-content input:focus, .auth-content select:focus {
+            border-color: rgba(129,140,248,0.8);
+            background: rgba(2,6,23,0.52);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.2), 0 0 22px rgba(99,102,241,0.12);
+        }
+        .auth-content form button[type="submit"] {
+            border: 1px solid rgba(255,255,255,0.2);
+            background: linear-gradient(135deg, #818cf8 0%, #6366f1 48%, #4f46e5 100%);
+            box-shadow: 0 8px 20px rgba(79,70,229,0.32), inset 0 1px 0 rgba(255,255,255,0.28);
+            transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+        }
+        .auth-content form button[type="submit"]:hover {
+            background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 48%, #6366f1 100%);
+            box-shadow: 0 11px 26px rgba(79,70,229,0.42), inset 0 1px 0 rgba(255,255,255,0.35);
+            transform: translateY(-1px);
+        }
+        .auth-content form button[type="submit"]:focus-visible, .auth-tab-btn:focus-visible {
+            outline: 2px solid #c7d2fe;
+            outline-offset: 3px;
+        }
+        .telegram-connection-banner {
+            margin-top: 24px;
+            padding: 18px;
+            border: 1px solid rgba(42,171,238,0.38);
+            border-top: 1px solid rgba(255,255,255,0.3);
+            border-radius: 14px;
+            background:
+                linear-gradient(145deg, rgba(42,171,238,0.16), rgba(42,171,238,0.035) 72%),
+                rgba(255,255,255,0.07);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.12);
+            -webkit-backdrop-filter: blur(24px);
+            backdrop-filter: blur(24px);
+        }
+        .telegram-connection-banner p {
+            margin: 8px 0 14px;
+            color: #dbeafe;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .telegram-connect-button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 48px;
+            padding: 10px 14px;
+            border: 1px solid rgba(255,255,255,0.34);
+            border-radius: 10px;
+            background: linear-gradient(135deg, #36b9f4, #2aabee 58%, #168bd1);
+            box-shadow: 0 8px 22px rgba(42,171,238,0.28), inset 0 1px 0 rgba(255,255,255,0.35);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .telegram-connect-button:disabled {
+            cursor: not-allowed;
+            filter: grayscale(0.45);
+            opacity: 0.62;
+        }
+        .telegram-connect-action {
+            width: 100%;
+            justify-content: center;
+            margin-top: 10px;
+            background: #2AABEE;
+        }
+        .telegram-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin: 0 8px;
+            padding: 6px 10px;
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 999px;
+            background: rgba(15,23,42,0.65);
+            color: #cbd5e1;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .telegram-status-badge[hidden],
+        .telegram-connect-button[hidden] { display: none; }
+        .telegram-status-badge::before {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+            content: "";
+        }
+        .telegram-status-badge.is-connected {
+            border-color: rgba(34,197,94,0.45);
+            background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(21,128,61,0.18));
+            color: #bbf7d0;
+            box-shadow: 0 6px 18px rgba(34,197,94,0.16), inset 0 1px 0 rgba(255,255,255,0.16);
+        }
+        .telegram-status-badge.is-connected::before { background: #22c55e; }
+        .telegram-status-badge.is-disconnected {
+            border-color: rgba(239,68,68,0.45);
+            color: #fecaca;
+        }
+        .telegram-status-badge.is-disconnected::before { background: #ef4444; }
+        .telegram-connect-button svg { flex: 0 0 22px; }
+
+        .req-tabs-container { display: flex; gap: 8px; background: #0f172a; padding: 6px; border-radius: 10px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .req-tab-btn { flex: 1; padding: 12px; text-align: center; background: transparent; color: var(--text-muted); border: none; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+        .req-tab-btn.active { background: var(--primary); color: #ffffff; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+
+        .stats-container { display: flex; gap: 15px; margin-bottom: 25px; }
+        .stat-card { flex: 1; background: #0f172a; padding: 20px; border-radius: 10px; border: 1px solid var(--border-color); border-left: 5px solid var(--primary); text-align: center; }
+        .stat-card.pending { border-left-color: var(--warning); }
+        .stat-card.approved { border-left-color: var(--success); }
+        .stat-card.rejected { border-left-color: var(--danger); }
+        .stat-number { font-size: 28px; font-weight: bold; margin-top: 8px; color: #fff; }
+
+        .monthly-report-panel { border-top: 3px solid #31a0a8; }
+        .monthly-report-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+        .monthly-report-heading h3 { margin-bottom: 4px; border: 0; }
+        .monthly-report-heading p { margin: 0; color: var(--text-muted); font-size: 13px; }
+        .monthly-report-controls { display: flex; align-items: flex-end; gap: 10px; margin: 18px 0; }
+        .monthly-report-controls label { flex: 1; min-width: 130px; color: var(--text-muted); font-size: 12px; }
+        .monthly-report-controls select { margin: 6px 0 0; }
+        .monthly-report-controls button { min-height: 42px; white-space: nowrap; }
+        .monthly-report-button { background: #176b72; }
+        .monthly-report-button:hover { background: #12575d; }
+        .monthly-report-download { background: #b7791f; }
+        .monthly-report-download:hover { background: #925f19; }
+        .monthly-report-status { min-height: 20px; color: var(--text-muted); font-size: 12px; }
+        .monthly-report-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 14px 0 20px; }
+        .monthly-report-metric { min-width: 0; padding: 16px; border: 1px solid rgba(148,163,184,0.2); border-radius: 8px; background: rgba(4,13,27,0.55); }
+        .monthly-report-metric-label { color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .monthly-report-metric-value { overflow-wrap: anywhere; margin-top: 8px; color: #f8fafc; font-size: 21px; font-weight: 700; }
+        .monthly-report-breakdowns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr); gap: 20px; }
+        .monthly-report-breakdowns h4 { margin: 0 0 14px; color: #dbe7ef; font-size: 13px; }
+        .monthly-report-department { display: grid; grid-template-columns: minmax(88px, 130px) minmax(80px, 1fr) auto; align-items: center; gap: 10px; margin: 12px 0; font-size: 12px; }
+        .monthly-report-department-name { overflow: hidden; color: #dbe7ef; text-overflow: ellipsis; white-space: nowrap; }
+        .monthly-report-bar { height: 8px; overflow: hidden; border-radius: 5px; background: rgba(148,163,184,0.18); }
+        .monthly-report-bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #20a5a0, #71c5ac); }
+        .monthly-report-amount { color: #cbd5e1; white-space: nowrap; }
+        .monthly-report-status-row { display: grid; grid-template-columns: 78px 1fr 32px; align-items: center; gap: 10px; margin: 12px 0; font-size: 12px; }
+        .monthly-report-status-bar { height: 8px; overflow: hidden; border-radius: 5px; background: rgba(148,163,184,0.18); }
+        .monthly-report-status-bar > span { display: block; height: 100%; border-radius: inherit; }
+        .monthly-report-status-bar .approved { background: #36a875; }
+        .monthly-report-status-bar .rejected { background: #de6a64; }
+        .monthly-report-status-bar .pending { background: #d5a33c; }
+
+        .request-item { background: #0f172a; padding: 20px; margin-top: 15px; border-radius: 10px; border: 1px solid var(--border-color); border-left: 5px solid var(--primary); display: flex; flex-direction: column; gap: 12px; }
+        .request-header { display: flex; justify-content: space-between; align-items: flex-start; }
+
+        .status-PENDING { color: var(--warning); font-weight: bold; }
+        .status-APPROVED { color: var(--success); font-weight: bold; }
+        .status-REJECTED { color: var(--danger); font-weight: bold; }
+        .btn-approve { background: var(--success); margin-right: 8px; }
+        .btn-reject { background: var(--danger); }
+
+        .executive-tag { background: #d97706; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .super-admin-tag { background: #9333ea; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        
+        .filter-bar { display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .filter-bar input, .filter-bar select { margin: 0; flex: 1; min-width: 160px; }
+
+        .dynamic-fields { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 16px; border: 1px dashed var(--border-color); }
+        .amount-input-wrapper { position: relative; }
+        .amount-input-wrapper input { padding-right: 56px; }
+        .amount-input-wrapper input::-webkit-outer-spin-button,
+        .amount-input-wrapper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .amount-input-wrapper input[type=number] { -moz-appearance: textfield; }
+        .amount-input-suffix { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 14px; }
+        .conditional-fields { border-left: 2px solid var(--primary); margin: 4px 0 12px; padding: 4px 0 0 12px; }
+        .conditional-fields[hidden] { display: none; }
+        .timestamp { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+        .stage-badge { background: #312e81; color: #818cf8; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+
+        .audit-history-box { background: #0f172a; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 12px; border-left: 3px solid var(--primary); }
+        .audit-entry { margin-top: 6px; color: var(--text-muted); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { color: var(--text-muted); background: #0f172a; }
+
+        .mfa-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .mfa-card { background: #1e293b; padding: 30px; border-radius: 12px; width: min(100%, 350px); border: 1px solid var(--primary); text-align: center; }
+
+        @media (max-width: 760px) {
+            body { padding: 12px; }
+            .container { padding: 24px; margin: 12px auto; }
+            .stats-container { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            .stat-card { padding: 16px 10px; }
+            .request-header { flex-direction: column; gap: 12px; }
+            .request-header > div:last-child { display: flex; gap: 8px; }
+            .request-header > div:last-child button { flex: 1; margin: 0; }
+            #userManagementCard > div:first-of-type { display: flex; flex-wrap: wrap; gap: 8px; }
+            #userManagementCard .telegram-status-badge { margin: 0; }
+            #dashboardSection > div[style*="justify-content: space-between"] { align-items: flex-start !important; flex-direction: column; gap: 12px; }
+            #exportActionSelect { max-width: 100%; }
+            .monthly-report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .monthly-report-breakdowns { grid-template-columns: 1fr; gap: 18px; }
+            .monthly-report-heading { flex-direction: column; }
+        }
+        @media (max-width: 520px) {
+            .container { padding: 16px; margin: 8px auto; border-radius: 12px; }
+            .header-title { font-size: 20px; margin-bottom: 18px; }
+            .auth-wrapper { margin: 20px auto; }
+            .auth-content { padding: 20px; }
+            .card { padding: 18px; }
+            .req-tabs-container { flex-direction: column; }
+            .req-tab-btn { padding: 11px; }
+            .filter-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+            .filter-bar input, .filter-bar select { min-width: 0; }
+            #sessionBar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+            #sessionBar > button { float: none !important; margin-left: auto; }
+            #sessionBar > div { flex-basis: 100%; padding-top: 8px !important; }
+            #requestFormCard .dynamic-fields { padding: 12px; }
+            .feedback-launcher { right: 16px; bottom: 16px; }
+            .feedback-dialog { padding: 24px 20px; }
+            .monthly-report-controls { align-items: stretch; flex-wrap: wrap; }
+            .monthly-report-controls label { min-width: calc(50% - 6px); }
+            .monthly-report-controls button { flex: 1; }
+            .monthly-report-metric { padding: 12px; }
+            .monthly-report-metric-value { font-size: 18px; }
+            .monthly-report-department { grid-template-columns: 82px minmax(45px, 1fr) auto; gap: 7px; }
+        }
+
+        @media print {
+            body { background: #ffffff; color: #000000; padding: 0; }
+            .container { box-shadow: none; border: none; padding: 0; max-width: 100%; background: #fff; }
+            #authSection, #requestFormCard, #userManagementCard, #userTable, .filter-bar, .req-tabs-container, button, .stats-container, #sessionBar, #exportDropdownContainer { display: none !important; }
+            .request-item { background: #fff; border: 1px solid #ccc; color: #000; box-shadow: none; break-inside: avoid; }
+            .audit-history-box { background: #f8fafc; border-left: 3px solid #000; color: #333; }
+            .header-title { color: #000; border-bottom: 2px solid #000; }
+        }
+    </style>
+</head>
+<body class="login-screen">
+    <div class="container">
+        <div class="header-title">🏢 Requests System</div>
+        
+        <div id="sessionBar" class="card" style="background: #0f172a; display: none;">
+            <strong>User:</strong> <span id="sessName"></span> | 
+            <strong>Dept:</strong> <span id="sessDept"></span> | 
+            <strong>Role:</strong> <span id="sessRole" style="color: #818cf8;"></span>
+            <span id="superTag" class="super-admin-tag" style="display:none; margin-left:10px;">SUPER ADMIN</span>
+            <span id="execTag" class="executive-tag" style="display:none; margin-left:10px;">EXECUTIVE LEVEL</span>
+            <button type="button" onclick="logout()" style="float: right; padding: 6px 14px; background: var(--danger); font-size: 12px;">Logout</button>
+            <div style="clear: both; padding-top: 10px;">
+                <small>Connect Telegram for login and instant request alerts:</small>
+                <div style="margin: 8px 0;">
+                    <button id="accountTelegramConnectButton" class="telegram-connect-button telegram-connect-action" type="button" onclick="connectTelegramForCurrentAccount(event)" hidden>Connect Telegram for Instant Alerts</button>
+                    <span id="accountTelegramStatus" class="telegram-status-badge" role="status" aria-live="polite" hidden></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="mfaModal" class="mfa-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="mfaTitle">
+            <div class="mfa-card">
+                <h3 id="mfaTitle">🔐 MFA Verification Required</h3>
+                <p style="font-size: 12px; color: var(--text-muted);">Please check Server Terminal for 6-Digit Verification Code.</p>
+                <label for="mfaCodeInput"><small>6-digit verification code</small></label>
+                <input type="text" id="mfaCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Enter 6-Digit Code" style="text-align: center; font-size: 18px; letter-spacing: 4px;">
+                <button type="button" onclick="submitMfaCode()" style="width: 100%; margin-top: 10px;">Verify & Access System</button>
+            </div>
+        </div>
+
+        <div id="completeProfileModal" class="mfa-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="completeProfileTitle">
+            <div class="mfa-card">
+                <h3 id="completeProfileTitle">Complete Your Profile</h3>
+                <p>Select your department and position to continue. Higher access roles must be assigned by an administrator.</p>
+                <form id="completeProfileForm">
+                    <label for="onboardingDepartment"><small>Department</small></label>
+                    <select id="onboardingDepartment" required>
+                        <option value="">Select department</option>
+                        <option value="HR">HR</option>
+                        <option value="Finance">Finance</option>
+                        <option value="IT">IT & Infrastructure</option>
+                        <option value="Cashier">Cashier</option>
+                        <option value="Sales & Marketing">Sales & Marketing</option>
+                        <option value="Warehouse">Warehouse</option>
+                        <option value="Production">Production</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Executive Management">Executive Management</option>
+                    </select>
+                    <label for="onboardingRole"><small>Role / Position</small></label>
+                    <select id="onboardingRole" required>
+                        <option value="">Select role</option>
+                        <option value="STAFF">Staff</option>
+                        <option value="ASSISTANT">Assistant</option>
+                        <option value="SUPERVISOR">Supervisor</option>
+                        <option value="IT_SPECIALIST">IT Specialist</option>
+                    </select>
+                    <button type="submit" style="width: 100%; margin-top: 15px;">Complete Profile</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="authSection">
+            <div class="auth-wrapper">
+                <div class="auth-tabs" role="group" aria-label="Account access">
+                    <button id="tabLoginBtn" class="auth-tab-btn active" type="button" aria-pressed="true" aria-controls="loginTabContent" onclick="switchAuthTab('login')">Login</button>
+                    <button id="tabRegisterBtn" class="auth-tab-btn" type="button" aria-pressed="false" aria-controls="registerTabContent" onclick="switchAuthTab('register')">Register</button>
+                </div>
+
+                <div class="auth-content">
+                    <div id="loginTabContent" role="group" aria-label="Sign in">
+                        <h3 style="border:none; padding:0; margin-bottom:20px;">Secure Account Login</h3>
+                        <form id="loginForm">
+                            <label for="loginEmail"><small>Email or Username:</small></label>
+                            <input type="text" id="loginEmail" name="email" autocomplete="username" placeholder="admin@company.com" required>
+                            <label for="loginPassword"><small>Password:</small></label>
+                            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Password" required>
+                            <button type="submit" style="width: 100%; margin-top: 15px;">Sign In</button>
+                        </form>
+                        <div style="margin-top: 20px; text-align: center;">
+                            <p style="color: var(--text-muted);">Or sign in with Telegram</p>
+                            <div id="telegramLoginWidget"></div>
+                        </div>
+                    </div>
+
+                    <div id="registerTabContent" role="group" aria-label="Create account" style="display: none;">
+                        <h3 style="border:none; padding:0; margin-bottom:20px;">Register New User</h3>
+                        <form id="userForm">
+                            <label for="regName"><small>Full Name</small></label>
+                            <input type="text" id="regName" autocomplete="name" placeholder="Full Name" required>
+                            <label for="regEmail"><small>Email address</small></label>
+                            <input type="email" id="regEmail" autocomplete="email" placeholder="admin@company.com" required>
+                            <label for="regPassword"><small>Password</small></label>
+                            <input type="password" id="regPassword" autocomplete="new-password" placeholder="Password" required>
+                            
+                            <label for="regDept"><small>Your Department:</small></label>
+                            <select id="regDept">
+                                <option value="HR">HR</option>
+                                <option value="Finance">Finance</option>
+                                <option value="IT">IT & Infrastructure</option>
+                                <option value="Cashier">Cashier</option>
+                                <option value="Sales & Marketing">Sales & Marketing</option>
+                                <option value="Warehouse">Warehouse</option>
+                                <option value="Production">Production</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Executive Management">Executive Management</option>
+                            </select>
+
+                            <label for="regRole"><small>Role Position (Principle of Least Privilege):</small></label>
+                            <select id="regRole">
+                                <option value="STAFF">Staff</option>
+                                <option value="ASSISTANT">Assistant</option>
+                                <option value="SUPERVISOR">Supervisor</option>
+                                <option value="IT_SPECIALIST">IT Specialist</option>
+                            </select>
+                            <button type="submit" style="width: 100%; background: var(--success); margin-top: 15px;">Create Account</button>
+                        </form>
+                        <aside class="telegram-connection-banner" aria-labelledby="telegramConnectHeading">
+                            <strong id="telegramConnectHeading">Telegram Notification Connection</strong>
+                            <p>Connect Telegram for instant notification access and system authorization</p>
+                            <div class="telegram-connect-button">
+                                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                                    <path fill="currentColor" d="M21.6 3.2 18.4 20c-.2 1.2-.9 1.5-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.8 13.6.9 12c-1.1-.3-1.1-1 .2-1.5L20.2 3c.9-.3 1.7.2 1.4.2Z"/>
+                                </svg>
+                                <span>Connect Telegram Bot</span>
+                            </div>
+                            <button id="telegramRegisterConnectButton" class="telegram-connect-button telegram-connect-action" type="button" onclick="openRegistrationTelegramLink()" disabled>Connect Telegram for Instant Alerts</button>
+                            <small id="telegramRegisterStatus" role="status" aria-live="polite">Create your account to generate a secure one-time connection link.</small>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboardSection" style="display: none;">
+            <div class="stats-container" aria-label="Request summary">
+                <div class="stat-card">
+                    <div>Total Requests</div>
+                    <div class="stat-number" id="statTotal">0</div>
+                </div>
+                <div class="stat-card pending">
+                    <div>Pending</div>
+                    <div class="stat-number" id="statPending">0</div>
+                </div>
+                <div class="stat-card approved">
+                    <div>Approved</div>
+                    <div class="stat-number" id="statApproved">0</div>
+                </div>
+                <div class="stat-card rejected">
+                    <div>Rejected</div>
+                    <div class="stat-number" id="statRejected">0</div>
+                </div>
+            </div>
+
+            <div class="card" id="userManagementCard" style="display: none; border-left: 5px solid #9333ea;">
+                <h3>👥 PoLP & Temporary Time-Bound Access Elevation</h3>
+                <div style="margin-bottom: 12px;">
+                    <span id="telegramAdminStatus" class="telegram-status-badge" role="status" aria-live="polite">Checking Telegram…</span>
+                    <button type="button" onclick="checkTelegramStatus()">Refresh Status</button>
+                    <button type="button" onclick="testTelegramNotifications()">Test Admin Alert</button>
+                    <span id="telegramTestResult" role="status" aria-live="polite"></span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="userTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Department</th>
+                                <th>Role Scope</th>
+                                <th>Temporary Access Bound</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <section class="card monthly-report-panel" id="monthlyReportPanel" style="display: none;" aria-labelledby="monthlyReportHeading">
+                <div class="monthly-report-heading">
+                    <div>
+                        <h3 id="monthlyReportHeading">Monthly Reports</h3>
+                        <p>Executive activity and approved spending by department.</p>
+                    </div>
+                </div>
+                <div class="monthly-report-controls" id="monthlyReportControls">
+                    <label for="monthlyReportMonth">Month
+                        <select id="monthlyReportMonth"></select>
+                    </label>
+                    <label for="monthlyReportYear">Year
+                        <select id="monthlyReportYear"></select>
+                    </label>
+                    <button id="monthlyReportRefresh" class="monthly-report-button" type="button">↻ Refresh</button>
+                    <button id="monthlyReportDownload" class="monthly-report-download" type="button">↓ Download PDF</button>
+                    <button id="monthlyReportExcelDownload" class="monthly-report-download" type="button">📊 Download Monthly Report (Excel)</button>
+                    <button id="monthlyReportAuditCsvDownload" class="monthly-report-download" type="button">📑 Export as Audit CSV</button>
+                </div>
+                <div id="monthlyReportStatus" class="monthly-report-status" role="status" aria-live="polite"></div>
+                <div id="monthlyReportMetrics" class="monthly-report-metrics" aria-live="polite"></div>
+                <div class="monthly-report-breakdowns">
+                    <div>
+                        <h4>Approved Spend by Department</h4>
+                        <div id="monthlyReportDepartments"></div>
+                    </div>
+                    <div>
+                        <h4>Request Status</h4>
+                        <div id="monthlyReportStatuses"></div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="card" id="requestFormCard">
+                <h3>Submit New Request</h3>
+                <form id="requestForm" enctype="multipart/form-data">
+                    <label for="title"><small>Request title</small></label>
+                    <input type="text" id="title" name="title" placeholder="Request Title" required>
+                    
+                    <div id="targetDeptContainer">
+                        <label for="targetDepartment"><small>Select Target Department for Approval:</small></label>
+                        <select id="targetDepartment" name="targetDepartment">
+                            <option value="HR">HR Department</option>
+                            <option value="Finance">Finance Department</option>
+                            <option value="IT">IT & Infrastructure</option>
+                            <option value="Admin">Admin Department</option>
+                            <option value="Warehouse">Warehouse Department</option>
+                            <option value="General">General / Internal</option>
+                        </select>
+                    </div>
+
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 12px 0;">
+                        <input type="checkbox" id="requiresExecutiveApproval" name="requiresExecutiveApproval" style="width: auto;">
+                        <small>Important request: require GM/DGM approval</small>
+                    </label>
+                    <p style="color: var(--text-muted); font-size: 13px;">Requests route through the requesting department manager, then the target department manager when different. Important requests also require GM/DGM approval.</p>
+
+                    <label for="category"><small>Select Category:</small></label>
+                    <select id="category" name="category" onchange="renderDynamicFields()">
+                        <option value="Purchase">Purchase / Procurement</option>
+                        <option value="Leave">Leave Request</option>
+                        <option value="Maintenance">Maintenance / Repair</option>
+                        <option value="Finance">Financial / Budget</option>
+                        <option value="Withdrawal">Financial Withdrawal</option>
+                        <option value="Gate Pass">Gate Pass</option>
+                        <option value="Car Request">Car Request</option>
+                        <option value="General">General / Other</option>
+                    </select>
+
+                    <div id="dynamicFieldsContainer" class="dynamic-fields"></div>
+
+                    <label for="description"><small>Description:</small></label>
+                    <textarea id="description" name="description" placeholder="Description..."></textarea>
+                    
+                    <label for="attachment"><small>Attach File / Receipt / Image (Optional):</small></label>
+                    <input type="file" id="attachment" name="attachment" accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx">
+                    <small>Files are stored in Telegram; maximum attachment size is 20 MB.</small>
+
+                    <button id="requestSubmitButton" type="submit">Submit Request</button>
+                </form>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px;">
+                <h3 style="margin: 0; border: none;">System Requests Overview</h3>
+                <div id="exportDropdownContainer" style="display: none;">
+                    <label class="sr-only" for="exportActionSelect">Export or print requests</label>
+                    <select id="exportActionSelect" onchange="handleExportAction(this)" style="margin: 0; padding: 10px 14px; background: #0284c7; color: white; font-weight: 600; border-radius: 8px; cursor: pointer; border: none;">
+                        <option value="" disabled selected>📥 Export / Print Options ▼</option>
+                        <option value="csv">📊 Export as Audit CSV</option>
+                        <option id="monthlyReportExportOption" value="monthly-report" hidden>📅 Download Monthly Report (Excel)</option>
+                        <option value="pdf">🖨️ Save as PDF / Print</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="req-tabs-container" style="margin-top: 15px;" role="group" aria-label="Filter requests by status">
+                <button id="tabReq_PENDING" class="req-tab-btn active" type="button" aria-pressed="true" onclick="switchRequestTab('PENDING')">⏳ Pending / In-Progress</button>
+                <button id="tabReq_APPROVED" class="req-tab-btn" type="button" aria-pressed="false" onclick="switchRequestTab('APPROVED')">✅ Approved / Completed</button>
+                <button id="tabReq_REJECTED" class="req-tab-btn" type="button" aria-pressed="false" onclick="switchRequestTab('REJECTED')">❌ Rejected</button>
+            </div>
+
+            <div class="filter-bar">
+                <label class="sr-only" for="searchKeyword">Search requests</label>
+                <input type="search" id="searchKeyword" placeholder="Search keyword..." oninput="filterRequests()">
+                <label class="sr-only" for="filterCategory">Filter requests by category</label>
+                <select id="filterCategory" onchange="filterRequests()">
+                    <option value="">All Categories</option>
+                    <option value="Purchase">Purchase</option>
+                    <option value="Leave">Leave</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Withdrawal">Withdrawal</option>
+                    <option value="Gate Pass">Gate Pass</option>
+                    <option value="Car Request">Car Request</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+
+            <div id="requestList" style="margin-top: 15px;" role="status" aria-live="polite" aria-busy="true">Loading requests…</div>
+        </div>
+    </div>
+
+    <button id="feedbackLauncher" class="feedback-launcher" type="button" style="display: none;" onclick="openFeedbackModal()">💬 Feedback</button>
+    <div id="feedbackModal" class="feedback-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+        <div class="feedback-dialog">
+            <button class="feedback-close" type="button" aria-label="Close feedback form" onclick="closeFeedbackModal()">×</button>
+            <h2 id="feedbackTitle">Share your feedback</h2>
+            <p>Your suggestions help us improve the experience.</p>
+            <form id="feedbackForm">
+                <strong id="feedbackRatingPrompt">How would you rate your experience?</strong>
+                <div id="feedbackStars" class="feedback-stars" role="group" aria-labelledby="feedbackRatingPrompt">
+                    <button class="feedback-star" type="button" data-rating="1" aria-label="1 star" aria-pressed="false">★</button>
+                    <button class="feedback-star" type="button" data-rating="2" aria-label="2 stars" aria-pressed="false">★</button>
+                    <button class="feedback-star" type="button" data-rating="3" aria-label="3 stars" aria-pressed="false">★</button>
+                    <button class="feedback-star" type="button" data-rating="4" aria-label="4 stars" aria-pressed="false">★</button>
+                    <button class="feedback-star" type="button" data-rating="5" aria-label="5 stars" aria-pressed="false">★</button>
+                </div>
+                <div id="feedbackRatingLabel" class="feedback-rating-label" aria-live="polite">Select a rating.</div>
+                <label for="feedbackCategory"><strong>Category</strong></label>
+                <select id="feedbackCategory" required>
+                    <option value="UI/UX Improvement">UI/UX Improvement</option>
+                    <option value="Bug Report">Bug Report</option>
+                    <option value="General Suggestion">General Suggestion</option>
+                </select>
+                <label for="feedbackMessage"><strong>Your message</strong></label>
+                <textarea id="feedbackMessage" maxlength="3000" placeholder="Tell us what you think..." required></textarea>
+                <button id="feedbackSubmit" class="feedback-submit" type="submit">Submit feedback</button>
+            </form>
+        </div>
+    </div>
+    <div id="feedbackToast" class="feedback-toast" role="status" aria-live="polite" style="display: none;"></div>
+
+    <script>
+        let currentUser = null;
+        let sessionToken = null;
+        let pendingMfaEmail = null;
+        let currentRequestTab = 'PENDING';
+        let requestLoadId = 0;
+        let telegramStatusPollTimer = null;
+        let telegramStatusPollDeadline = 0;
+        let telegramStatusRefreshPending = false;
+        const TELEGRAM_AUTH_ENDPOINT = '/api/auth/telegram';
+        const SESSION_STORAGE_KEY = 'requestManagementSession';
+        let pendingProfileToken = null;
+        let registrationTelegramLink = null;
+        let selectedFeedbackRating = 0;
+        let feedbackToastTimer = null;
+
+        function persistSession(user, token, pendingProfile = false) {
+            currentUser = pendingProfile ? null : user;
+            sessionToken = token;
+            try {
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                    user,
+                    token,
+                    pendingProfile
+                }));
+            } catch (error) {
+                console.error('Unable to persist the login session in this browser:', error);
+                alert('You are signed in, but this browser could not save your session. You may be signed out after refreshing.');
+            }
+        }
+
+        function clearPersistedSession() {
+            try {
+                localStorage.removeItem(SESSION_STORAGE_KEY);
+            } catch (error) {
+                console.error('Unable to clear the saved login session:', error);
+            }
+        }
+
+        async function restoreSession() {
+            let savedSession;
+            try {
+                savedSession = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) || 'null');
+            } catch (error) {
+                console.error('The saved login session could not be read:', error);
+                clearPersistedSession();
+                updateUI();
+                return;
+            }
+
+            if (!savedSession || typeof savedSession.token !== 'string' ||
+                !savedSession.token || !savedSession.user) {
+                updateUI();
+                return;
+            }
+
+            sessionToken = savedSession.token;
+            try {
+                const response = await fetch('/api/auth/session', {
+                    headers: { Authorization: 'Bearer ' + sessionToken },
+                    cache: 'no-store'
+                });
+                const data = await response.json();
+                if (sessionToken !== savedSession.token) return;
+                if (response.status === 401) {
+                    currentUser = null;
+                    sessionToken = null;
+                    pendingProfileToken = null;
+                    clearPersistedSession();
+                    updateUI();
+                    return;
+                }
+                if (!response.ok || !data.user) {
+                    throw new Error(data.error || 'Unable to validate the saved login session.');
+                }
+
+                if (data.requiresOnboarding) {
+                    currentUser = null;
+                    pendingProfileToken = sessionToken;
+                    persistSession(data.user, sessionToken, true);
+                    document.getElementById('completeProfileModal').style.display = 'flex';
+                    return;
+                }
+
+                pendingProfileToken = null;
+                persistSession(data.user, sessionToken);
+                updateUI();
+                renderDynamicFields();
+                loadRequests();
+            } catch (error) {
+                if (sessionToken !== savedSession.token) return;
+                console.error('Unable to validate the saved login session:', error);
+                if (savedSession.pendingProfile) {
+                    currentUser = null;
+                    pendingProfileToken = sessionToken;
+                    document.getElementById('completeProfileModal').style.display = 'flex';
+                    return;
+                }
+                currentUser = savedSession.user;
+                updateUI();
+                renderDynamicFields();
+                loadRequests();
+            }
+        }
+
+        function switchAuthTab(tab) {
+            const loginContent = document.getElementById('loginTabContent');
+            const registerContent = document.getElementById('registerTabContent');
+            const loginBtn = document.getElementById('tabLoginBtn');
+            const registerBtn = document.getElementById('tabRegisterBtn');
+
+            if (tab === 'login') {
+                if (loginContent) loginContent.style.display = 'block';
+                if (registerContent) registerContent.style.display = 'none';
+                if (loginBtn) {
+                    loginBtn.classList.add('active');
+                    loginBtn.setAttribute('aria-pressed', 'true');
+                }
+                if (registerBtn) {
+                    registerBtn.classList.remove('active');
+                    registerBtn.setAttribute('aria-pressed', 'false');
+                }
+            } else {
+                if (loginContent) loginContent.style.display = 'none';
+                if (registerContent) registerContent.style.display = 'block';
+                if (registerBtn) {
+                    registerBtn.classList.add('active');
+                    registerBtn.setAttribute('aria-pressed', 'true');
+                }
+                if (loginBtn) {
+                    loginBtn.classList.remove('active');
+                    loginBtn.setAttribute('aria-pressed', 'false');
+                }
+            }
+        }
+
+        async function onTelegramAuth(telegramUser, linkAccount = false) {
+            try {
+                const response = await fetch(
+                    linkAccount ? `${TELEGRAM_AUTH_ENDPOINT}/link` : TELEGRAM_AUTH_ENDPOINT,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(linkAccount && sessionToken ? { Authorization: 'Bearer ' + sessionToken } : {})
+                        },
+                        body: JSON.stringify(telegramUser)
+                    }
+                );
+                const data = await response.json();
+                if (!response.ok || !data.user || (!linkAccount && !data.token)) {
+                    throw new Error(data.error || 'Unable to sign in with Telegram.');
+                }
+                if (!linkAccount && data.requiresOnboarding) {
+                    pendingProfileToken = data.token;
+                    persistSession(data.user, data.token, true);
+                    document.getElementById('completeProfileModal').style.display = 'flex';
+                    return;
+                }
+                if (linkAccount) {
+                    currentUser = data.user;
+                    updateUI();
+                    alert(data.message);
+                } else {
+                    persistSession(data.user, data.token);
+                    updateUI();
+                    renderDynamicFields();
+                    loadRequests();
+                }
+            } catch (error) {
+                alert('Telegram Login Error: ' + error.message);
+            }
+        }
+
+        function openRegistrationTelegramLink() {
+            if (!registrationTelegramLink) {
+                document.getElementById('telegramRegisterStatus').textContent =
+                    'Create your account first to generate a secure Telegram connection link.';
+                return;
+            }
+            openTelegramLink(registrationTelegramLink);
+        }
+
+        function openTelegramLink(url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.hidden = true;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        async function connectTelegramForCurrentAccount(event) {
+            event?.preventDefault();
+            const button = document.getElementById('accountTelegramConnectButton');
+            const status = document.getElementById('accountTelegramStatus');
+            if (!sessionToken) {
+                status.hidden = false;
+                status.className = 'telegram-status-badge is-disconnected';
+                status.textContent = 'Sign in to create a Telegram connection link.';
+                return;
+            }
+            if (currentUser?.telegramId) {
+                updateUI();
+                return;
+            }
+            const telegramWindow = window.open('about:blank', '_blank');
+            if (!telegramWindow) {
+                status.hidden = false;
+                status.className = 'telegram-status-badge is-disconnected';
+                status.textContent = 'Allow pop-ups to open the Telegram connection link.';
+                return;
+            }
+            telegramWindow.opener = null;
+            button.disabled = true;
+            status.hidden = false;
+            status.className = 'telegram-status-badge';
+            status.textContent = 'Generating secure Telegram link…';
+            startTelegramConnectionPolling();
+            try {
+                const response = await fetch('/api/telegram/link', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                const data = await response.json();
+                if (!response.ok || !data.deepLink) {
+                    throw new Error(data.error || 'Unable to create a Telegram connection link.');
+                }
+                telegramWindow.location.replace(data.deepLink);
+                status.textContent = 'Telegram opened. Complete /start in the bot within 10 minutes.';
+            } catch (error) {
+                stopTelegramConnectionPolling();
+                telegramWindow.close();
+                status.className = 'telegram-status-badge is-disconnected';
+                status.textContent = error.message;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function refreshTelegramConnectionStatus() {
+            if (!sessionToken || !currentUser || telegramStatusRefreshPending) return;
+            const requestToken = sessionToken;
+            const requestUser = currentUser;
+            telegramStatusRefreshPending = true;
+            try {
+                const response = await fetch('/api/telegram/me', {
+                    headers: { Authorization: 'Bearer ' + requestToken },
+                    cache: 'no-store'
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Unable to refresh Telegram connection status.');
+                }
+                if (sessionToken !== requestToken || currentUser !== requestUser) return;
+                currentUser.telegramId = data.telegramId || null;
+                currentUser.telegramUsername = data.telegramUsername || null;
+                const button = document.getElementById('accountTelegramConnectButton');
+                const badge = document.getElementById('accountTelegramStatus');
+                if (button) {
+                    button.hidden = Boolean(data.telegramConnected);
+                    button.disabled = Boolean(data.telegramConnected);
+                }
+                if (badge) {
+                    badge.hidden = !data.telegramConnected;
+                    badge.className = 'telegram-status-badge' +
+                        (data.telegramConnected ? ' is-connected' : '');
+                    badge.textContent = data.telegramConnected ? '✅ Telegram Connected' : '';
+                }
+                if (data.telegramConnected) {
+                    stopTelegramConnectionPolling();
+                } else if (telegramStatusPollDeadline && Date.now() >= telegramStatusPollDeadline) {
+                    stopTelegramConnectionPolling();
+                }
+            } catch (error) {
+                if (sessionToken === requestToken && currentUser === requestUser) {
+                    console.error('Telegram connection status refresh failed:', error);
+                }
+            } finally {
+                telegramStatusRefreshPending = false;
+            }
+        }
+
+        function startTelegramConnectionPolling() {
+            stopTelegramConnectionPolling();
+            telegramStatusPollDeadline = Date.now() + (10 * 60 * 1000);
+            void refreshTelegramConnectionStatus();
+            telegramStatusPollTimer = window.setInterval(() => {
+                if (!document.hidden) void refreshTelegramConnectionStatus();
+                if (Date.now() >= telegramStatusPollDeadline) stopTelegramConnectionPolling();
+            }, 2500);
+        }
+
+        function stopTelegramConnectionPolling() {
+            if (telegramStatusPollTimer !== null) {
+                window.clearInterval(telegramStatusPollTimer);
+                telegramStatusPollTimer = null;
+            }
+            telegramStatusPollDeadline = 0;
+        }
+
+        async function checkTelegramStatus() {
+            const badge = document.getElementById('telegramAdminStatus');
+            if (!badge || !sessionToken) return;
+            badge.className = 'telegram-status-badge';
+            badge.textContent = 'Checking Telegram…';
+            try {
+                const response = await fetch('/api/telegram/status', {
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Unable to check Telegram status.');
+                }
+                const active = data.botActive && data.superAdminConnected;
+                badge.className = 'telegram-status-badge ' +
+                    (active ? 'is-connected' : 'is-disconnected');
+                badge.textContent = active
+                    ? `Telegram active · ${data.userLinkedCount} users linked`
+                    : (!data.botActive
+                        ? 'Bot unavailable or token missing'
+                        : 'Super Admin chat is not connected');
+                if (data.botActive && (!data.webhookConfigured || !data.webhookActive)) {
+                    badge.textContent += ' · webhook not active';
+                    badge.className = 'telegram-status-badge is-disconnected';
+                }
+            } catch (error) {
+                badge.className = 'telegram-status-badge is-disconnected';
+                badge.textContent = 'Telegram status unavailable: ' + error.message;
+            }
+        }
+
+        async function loadTelegramWidgets() {
+            const response = await fetch('/api/config');
+            if (!response.ok) {
+                throw new Error('Unable to load Telegram login configuration.');
+            }
+            const { telegramBotUsername } = await response.json();
+            if (!telegramBotUsername) return;
+
+            [
+                { id: 'telegramLoginWidget', size: 'large', callback: 'onTelegramAuth(user)' }
+            ].forEach(({ id, size, callback }) => {
+                const container = document.getElementById(id);
+                if (!container) return;
+                const script = document.createElement('script');
+                script.async = true;
+                script.src = 'https://telegram.org/js/telegram-widget.js?22';
+                script.dataset.telegramLogin = telegramBotUsername;
+                script.dataset.size = size;
+                script.dataset.onauth = callback;
+                script.dataset.requestAccess = 'write';
+                container.appendChild(script);
+            });
+        }
+
+        function switchRequestTab(status) {
+            currentRequestTab = status;
+            document.querySelectorAll('.req-tab-btn').forEach(btn => {
+                const isActive = btn.id === 'tabReq_' + status;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-pressed', String(isActive));
+            });
+            filterRequests();
+        }
+
+        function renderDynamicFields() {
+            const catEl = document.getElementById('category');
+            if (!catEl) return;
+            const cat = catEl.value;
+            const container = document.getElementById('dynamicFieldsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (cat === 'Purchase') {
+                container.innerHTML = '<label for="dyn_amount"><small>Estimated Amount (MMK):</small></label>' +
+                    '<div class="amount-input-wrapper"><input type="number" id="dyn_amount" min="0.01" step="0.01" placeholder="e.g. 500,000 MMK" required>' +
+                    '<span class="amount-input-suffix" aria-hidden="true">MMK</span></div>' +
+                    '<label for="dyn_items"><small>Items / Description:</small></label>' +
+                    '<input type="text" id="dyn_items" placeholder="e.g. Stationery, Office Laptop" required>' +
+                    '<label for="dyn_quantity"><small>Quantity (optional):</small></label>' +
+                    '<input type="number" id="dyn_quantity" min="1" step="1" placeholder="e.g. 5">' +
+                    '<label for="dyn_quantityUnit"><small>Unit (optional):</small></label>' +
+                    '<input type="text" id="dyn_quantityUnit" placeholder="e.g. pcs, box">';
+            } else if (cat === 'Finance' || cat === 'Withdrawal') {
+                container.innerHTML = '<label for="dyn_amount"><small>Requested Amount (MMK):</small></label>' +
+                    '<div class="amount-input-wrapper"><input type="number" id="dyn_amount" min="0.01" step="0.01" placeholder="Enter amount" required>' +
+                    '<span class="amount-input-suffix" aria-hidden="true">MMK</span></div>';
+            } else if (cat === 'Leave') {
+                container.innerHTML = '<label for="dyn_leaveType"><small>Leave Type:</small></label>' +
+                    '<select id="dyn_leaveType">' +
+                        '<option value="Casual">Casual Leave</option>' +
+                        '<option value="Medical">Medical Leave</option>' +
+                        '<option value="Annual">Annual Leave</option>' +
+                    '</select>' +
+                    '<label for="dyn_days"><small>Number of Days:</small></label>' +
+                    '<input type="number" id="dyn_days" min="1" step="1" placeholder="e.g. 3" required>';
+            } else if (cat === 'Maintenance') {
+                container.innerHTML = '<label for="dyn_location"><small>Equipment / Location:</small></label>' +
+                    '<input type="text" id="dyn_location" placeholder="e.g. Server Room AC" required>' +
+                    '<label for="dyn_urgency"><small>Urgency Level:</small></label>' +
+                    '<select id="dyn_urgency">' +
+                        '<option value="Low">Low</option>' +
+                        '<option value="Medium">Medium</option>' +
+                        '<option value="High/Critical">High / Critical</option>' +
+                    '</select>';
+            } else if (cat === 'Gate Pass') {
+                container.innerHTML = '<label for="dyn_passType"><small>Gate Pass Type:</small></label>' +
+                    '<select id="dyn_passType" onchange="toggleConditionalFields(\'dyn_passType\', \'dyn_gateVehicleFields\', \'Vehicle\')">' +
+                        '<option value="Material">Material / Equipment</option>' +
+                        '<option value="Vehicle">Vehicle Entry / Exit</option>' +
+                        '<option value="Visitor">Visitor</option>' +
+                    '</select>' +
+                    '<label for="dyn_passHolder"><small>Person / Pass Holder:</small></label>' +
+                    '<input type="text" id="dyn_passHolder" placeholder="Name of person carrying the pass" required>' +
+                    '<label for="dyn_passPurpose"><small>Purpose / Items / Destination:</small></label>' +
+                    '<textarea id="dyn_passPurpose" placeholder="Describe items, destination, or visit purpose" required></textarea>' +
+                    '<label for="dyn_passDate"><small>Expected Pass Date:</small></label>' +
+                    '<input type="date" id="dyn_passDate" required>' +
+                    '<div id="dyn_gateVehicleFields" class="conditional-fields" hidden>' +
+                        '<label for="dyn_gateVehicleType"><small>Vehicle Type:</small></label>' +
+                        '<input type="text" id="dyn_gateVehicleType" placeholder="e.g. Car, van, truck">' +
+                        '<label for="dyn_gateVehicleNumber"><small>Vehicle Registration Number:</small></label>' +
+                        '<input type="text" id="dyn_gateVehicleNumber" placeholder="Vehicle plate number">' +
+                        '<label for="dyn_gateDriverRequired"><small>Driver details available?</small></label>' +
+                        '<select id="dyn_gateDriverRequired" onchange="toggleConditionalFields(\'dyn_gateDriverRequired\', \'dyn_gateDriverFields\', \'Yes\')">' +
+                            '<option value="No">No</option>' +
+                            '<option value="Yes">Yes</option>' +
+                        '</select>' +
+                        '<div id="dyn_gateDriverFields" class="conditional-fields" hidden>' +
+                            '<label for="dyn_gateDriverName"><small>Driver Name:</small></label>' +
+                            '<input type="text" id="dyn_gateDriverName" placeholder="Driver name">' +
+                            '<label for="dyn_gateDriverPhone"><small>Driver Phone:</small></label>' +
+                            '<input type="tel" id="dyn_gateDriverPhone" placeholder="Driver contact number">' +
+                        '</div>' +
+                    '</div>';
+            } else if (cat === 'Car Request') {
+                container.innerHTML = '<label for="dyn_carPurpose"><small>Trip Purpose:</small></label>' +
+                    '<input type="text" id="dyn_carPurpose" placeholder="Reason for requesting a car" required>' +
+                    '<label for="dyn_carDestination"><small>Destination:</small></label>' +
+                    '<input type="text" id="dyn_carDestination" placeholder="Destination / route" required>' +
+                    '<label for="dyn_carDate"><small>Travel Date:</small></label>' +
+                    '<input type="date" id="dyn_carDate" required>' +
+                    '<label for="dyn_carTime"><small>Pickup Time:</small></label>' +
+                    '<input type="time" id="dyn_carTime" required>' +
+                    '<label for="dyn_carPassengers"><small>Number of Passengers:</small></label>' +
+                    '<input type="number" id="dyn_carPassengers" min="1" value="1" required>' +
+                    '<label for="dyn_carVehicleNeeded"><small>Company vehicle required?</small></label>' +
+                    '<select id="dyn_carVehicleNeeded" onchange="toggleConditionalFields(\'dyn_carVehicleNeeded\', \'dyn_carVehicleFields\', \'Yes\')">' +
+                        '<option value="Yes">Yes</option>' +
+                        '<option value="No">No</option>' +
+                    '</select>' +
+                    '<div id="dyn_carVehicleFields" class="conditional-fields">' +
+                        '<label for="dyn_carVehicleType"><small>Preferred Vehicle Type:</small></label>' +
+                        '<select id="dyn_carVehicleType">' +
+                            '<option value="Any suitable vehicle">Any suitable vehicle</option>' +
+                            '<option value="Car">Car</option>' +
+                            '<option value="Van">Van</option>' +
+                            '<option value="Pickup">Pickup</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<label for="dyn_carDriverNeeded"><small>Company driver required?</small></label>' +
+                    '<select id="dyn_carDriverNeeded" onchange="toggleConditionalFields(\'dyn_carDriverNeeded\', \'dyn_carDriverFields\', \'Yes\')">' +
+                        '<option value="Yes">Yes</option>' +
+                        '<option value="No">No</option>' +
+                    '</select>' +
+                    '<div id="dyn_carDriverFields" class="conditional-fields">' +
+                        '<label for="dyn_carDriverName"><small>Preferred / Assigned Driver (if known):</small></label>' +
+                        '<input type="text" id="dyn_carDriverName" placeholder="Driver name (optional)">' +
+                        '<label for="dyn_carDriverPhone"><small>Driver Contact (if known):</small></label>' +
+                        '<input type="tel" id="dyn_carDriverPhone" placeholder="Driver contact number (optional)">' +
+                    '</div>';
+            } else {
+                container.innerHTML = '<small style="color:#94a3b8;">No additional fields required for this category.</small>';
+            }
+            const today = new Date();
+            today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+            container.querySelectorAll('input[type="date"]').forEach(input => {
+                input.min = today.toISOString().slice(0, 10);
+            });
+        }
+
+        function toggleConditionalFields(selectId, fieldsId, showValue) {
+            const selection = document.getElementById(selectId);
+            const fields = document.getElementById(fieldsId);
+            if (!selection || !fields) return;
+            fields.hidden = selection.value !== showValue;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[char]);
+        }
+
+        function getSelectedMonthlyReportKey() {
+            const month = document.getElementById('monthlyReportMonth')?.value;
+            const year = document.getElementById('monthlyReportYear')?.value;
+            return month && year ? `${year}-${month}` : new Date().toISOString().slice(0, 7);
+        }
+
+        function hasMonthlyReportAccess() {
+            return ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SUPERVISOR'].includes(currentUser?.role);
+        }
+
+        function formatReportCurrency(amount) {
+            return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(amount) || 0)} MMK`;
+        }
+
+        function initializeMonthlyReportControls() {
+            const panel = document.getElementById('monthlyReportPanel');
+            if (!panel) return;
+            if (panel.dataset.initialized === 'true') {
+                void loadMonthlyAnalytics();
+                return;
+            }
+            const monthSelect = document.getElementById('monthlyReportMonth');
+            const yearSelect = document.getElementById('monthlyReportYear');
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            monthSelect.innerHTML = Array.from({ length: 12 }, (_, index) => {
+                const monthNumber = index + 1;
+                const monthLabel = new Date(Date.UTC(currentYear, index, 1)).toLocaleDateString('en-US', {
+                    month: 'long', timeZone: 'UTC'
+                });
+                return `<option value="${String(monthNumber).padStart(2, '0')}">${monthLabel}</option>`;
+            }).join('');
+            yearSelect.innerHTML = Array.from({ length: currentYear - 1997 }, (_, index) => currentYear + 1 - index)
+                .map(year => `<option value="${year}">${year}</option>`)
+                .join('');
+            monthSelect.value = String(currentDate.getMonth() + 1).padStart(2, '0');
+            yearSelect.value = String(currentYear);
+            monthSelect.addEventListener('change', loadMonthlyAnalytics);
+            yearSelect.addEventListener('change', loadMonthlyAnalytics);
+            document.getElementById('monthlyReportRefresh').addEventListener('click', loadMonthlyAnalytics);
+            document.getElementById('monthlyReportDownload').addEventListener('click', downloadMonthlyReportPdf);
+            document.getElementById('monthlyReportExcelDownload').addEventListener('click', downloadMonthlyReportExcel);
+            document.getElementById('monthlyReportAuditCsvDownload').addEventListener('click', downloadMonthlyAuditCsv);
+            panel.dataset.initialized = 'true';
+            void loadMonthlyAnalytics();
+        }
+
+        async function loadMonthlyAnalytics() {
+            if (!sessionToken || !hasMonthlyReportAccess()) return;
+            const monthKey = getSelectedMonthlyReportKey();
+            const status = document.getElementById('monthlyReportStatus');
+            status.textContent = `Loading ${monthKey} report…`;
+            try {
+                const response = await fetch(`/api/reports/monthly/analytics?month=${encodeURIComponent(monthKey)}`, {
+                    headers: { Authorization: `Bearer ${sessionToken}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load monthly analytics.');
+
+                const { report, analytics } = data;
+                const metrics = [
+                    ['Total Requests', report.totalRequests],
+                    ['Total Approved', report.approvedCount],
+                    ['Approved Spend', formatReportCurrency(analytics.totalSpendAmount)],
+                    ['Top Requesting Department', analytics.topRequestingDepartment]
+                ];
+                document.getElementById('monthlyReportMetrics').innerHTML = metrics.map(([label, value]) =>
+                    `<div class="monthly-report-metric"><div class="monthly-report-metric-label">${escapeHtml(label)}</div>` +
+                    `<div class="monthly-report-metric-value">${escapeHtml(value)}</div></div>`
+                ).join('');
+
+                const departments = analytics.spendingByDepartment.filter(entry => entry.requestCount > 0);
+                const maxSpend = Math.max(...departments.map(entry => entry.spendAmount), 0);
+                document.getElementById('monthlyReportDepartments').innerHTML = departments.length
+                    ? departments.map(entry => {
+                        const width = maxSpend > 0 ? Math.max(3, entry.spendAmount / maxSpend * 100) : 0;
+                        return '<div class="monthly-report-department">' +
+                            `<span class="monthly-report-department-name" title="${escapeHtml(entry.department)}">${escapeHtml(entry.department)}</span>` +
+                            `<div class="monthly-report-bar" aria-label="${escapeHtml(entry.department)} spend"><span style="width:${width}%"></span></div>` +
+                            `<span class="monthly-report-amount">${formatReportCurrency(entry.spendAmount)}</span>` +
+                        '</div>';
+                    }).join('')
+                    : '<p class="monthly-report-status">No requests for this period.</p>';
+
+                const states = [
+                    { label: 'Approved', count: report.approvedCount, className: 'approved' },
+                    { label: 'Rejected', count: report.rejectedCount, className: 'rejected' },
+                    { label: 'Pending', count: report.pendingCount, className: 'pending' }
+                ];
+                document.getElementById('monthlyReportStatuses').innerHTML = states.map(state => {
+                    const width = report.totalRequests > 0 ? state.count / report.totalRequests * 100 : 0;
+                    return '<div class="monthly-report-status-row">' +
+                        `<span>${state.label}</span><div class="monthly-report-status-bar"><span class="${state.className}" style="width:${width}%"></span></div>` +
+                        `<strong>${state.count}</strong></div>`;
+                }).join('');
+                status.textContent = `Report period: ${monthKey} | Top spending department: ${analytics.topSpendingDepartment}`;
+            } catch (error) {
+                status.textContent = error.message;
+                document.getElementById('monthlyReportMetrics').innerHTML = '';
+                document.getElementById('monthlyReportDepartments').innerHTML = '';
+                document.getElementById('monthlyReportStatuses').innerHTML = '';
+            }
+        }
+
+        async function downloadMonthlyReportPdf() {
+            if (!sessionToken || !hasMonthlyReportAccess()) return;
+            const monthKey = getSelectedMonthlyReportKey();
+            const button = document.getElementById('monthlyReportDownload');
+            button.disabled = true;
+            try {
+                const response = await fetch(`/api/reports/monthly.pdf?month=${encodeURIComponent(monthKey)}`, {
+                    headers: { Authorization: `Bearer ${sessionToken}` }
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Unable to download the PDF report.');
+                }
+                const url = URL.createObjectURL(await response.blob());
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `monthly-executive-report-${monthKey}.pdf`;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (error) {
+                document.getElementById('monthlyReportStatus').textContent = error.message;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function downloadMonthlyReportExcel() {
+            await downloadMonthlyReportFile(
+                '/api/reports/monthly',
+                'monthly-request-report',
+                'xlsx',
+                document.getElementById('monthlyReportExcelDownload')
+            );
+        }
+
+        async function downloadMonthlyAuditCsv() {
+            await downloadMonthlyReportFile(
+                '/api/reports/monthly/audit.csv',
+                'monthly-audit-log',
+                'csv',
+                document.getElementById('monthlyReportAuditCsvDownload')
+            );
+        }
+
+        async function downloadMonthlyReportFile(endpoint, filePrefix, extension, button) {
+            if (!sessionToken || !hasMonthlyReportAccess() || !button) return;
+            const monthKey = getSelectedMonthlyReportKey();
+            button.disabled = true;
+            try {
+                const response = await fetch(`${endpoint}?month=${encodeURIComponent(monthKey)}`, {
+                    headers: { Authorization: `Bearer ${sessionToken}` }
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || `Unable to download the ${extension.toUpperCase()} report.`);
+                }
+                const url = URL.createObjectURL(await response.blob());
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${filePrefix}-${monthKey}.${extension}`;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (error) {
+                document.getElementById('monthlyReportStatus').textContent = error.message;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function updateUI() {
+            if (currentUser) {
+                document.body.classList.remove('login-screen');
+                document.body.classList.add('dashboard-screen');
+                document.body.classList.toggle(
+                    'admin-screen',
+                    ['SUPER_ADMIN', 'ADMIN'].includes(currentUser.role)
+                );
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('sessionBar').style.display = 'block';
+                document.getElementById('dashboardSection').style.display = 'block';
+                document.getElementById('feedbackLauncher').style.display = 'block';
+                
+                document.getElementById('sessName').innerText = currentUser.name || 'User';
+                document.getElementById('sessDept').innerText = currentUser.department || 'N/A';
+                document.getElementById('sessRole').innerText = currentUser.role || 'STAFF';
+                const accountTelegramButton = document.getElementById('accountTelegramConnectButton');
+                const accountTelegramStatus = document.getElementById('accountTelegramStatus');
+                if (accountTelegramButton) {
+                    accountTelegramButton.hidden = Boolean(currentUser.telegramId);
+                    accountTelegramButton.disabled = Boolean(currentUser.telegramId);
+                }
+                if (accountTelegramStatus) {
+                    accountTelegramStatus.hidden = !currentUser.telegramId;
+                    accountTelegramStatus.className = 'telegram-status-badge' +
+                        (currentUser.telegramId ? ' is-connected' : '');
+                    accountTelegramStatus.textContent = currentUser.telegramId
+                        ? '✅ Telegram Connected'
+                        : '';
+                }
+
+                const targetDeptContainer = document.getElementById('targetDeptContainer');
+                const canSelectTargetDepartment = currentUser.role !== 'STAFF' ||
+                    String(currentUser.department || '').trim().toLowerCase() === 'admin';
+                if (!canSelectTargetDepartment) {
+                    if (targetDeptContainer) targetDeptContainer.style.display = 'none';
+                } else {
+                    if (targetDeptContainer) targetDeptContainer.style.display = 'block';
+                }
+
+                if (['SUPER_ADMIN', 'ADMIN'].includes(currentUser.role)) {
+                    document.getElementById('superTag').style.display = 'inline-block';
+                    document.getElementById('execTag').style.display = 'none';
+                    document.getElementById('requestFormCard').style.display = 'none';
+                    document.getElementById('userManagementCard').style.display = 'block';
+                    loadUsers();
+                    checkTelegramStatus();
+                } else if (['GM', 'DGM'].includes(currentUser.role)) {
+                    document.getElementById('superTag').style.display = 'none';
+                    document.getElementById('execTag').style.display = 'inline-block';
+                    document.getElementById('requestFormCard').style.display = 'none';
+                    document.getElementById('userManagementCard').style.display = 'none';
+                } else {
+                    document.getElementById('superTag').style.display = 'none';
+                    document.getElementById('execTag').style.display = 'none';
+                    document.getElementById('requestFormCard').style.display = 'block';
+                    document.getElementById('userManagementCard').style.display = 'none';
+                }
+
+                if (['ADMIN', 'SUPER_ADMIN', 'GM', 'DGM', 'MANAGER', 'HR'].includes(currentUser.role)) {
+                    document.getElementById('exportDropdownContainer').style.display = 'block';
+                } else {
+                    document.getElementById('exportDropdownContainer').style.display = 'none';
+                }
+                const monthlyReportOption = document.getElementById('monthlyReportExportOption');
+                if (monthlyReportOption) {
+                    monthlyReportOption.hidden = !hasMonthlyReportAccess();
+                }
+                const monthlyReportPanel = document.getElementById('monthlyReportPanel');
+                if (monthlyReportPanel) {
+                    monthlyReportPanel.style.display = hasMonthlyReportAccess() ? 'block' : 'none';
+                    if (hasMonthlyReportAccess()) initializeMonthlyReportControls();
+                }
+            } else {
+                document.body.classList.add('login-screen');
+                document.body.classList.remove('dashboard-screen');
+                document.body.classList.remove('admin-screen');
+                document.getElementById('authSection').style.display = 'block';
+                document.getElementById('sessionBar').style.display = 'none';
+                document.getElementById('dashboardSection').style.display = 'none';
+                document.getElementById('feedbackLauncher').style.display = 'none';
+                closeFeedbackModal();
+            }
+        }
+
+        function setFeedbackRating(rating) {
+            selectedFeedbackRating = rating;
+            document.querySelectorAll('.feedback-star').forEach(star => {
+                const isSelected = Number(star.dataset.rating) <= rating;
+                star.classList.toggle('is-selected', isSelected);
+                star.setAttribute('aria-pressed', String(Number(star.dataset.rating) === rating));
+            });
+            document.getElementById('feedbackRatingLabel').textContent =
+                `${rating} out of 5 stars`;
+        }
+
+        function openFeedbackModal() {
+            if (!currentUser || !sessionToken) return;
+            document.getElementById('feedbackModal').style.display = 'flex';
+            document.getElementById('feedbackStars').querySelector('button').focus();
+        }
+
+        function closeFeedbackModal() {
+            const modal = document.getElementById('feedbackModal');
+            if (modal) modal.style.display = 'none';
+            if (currentUser) document.getElementById('feedbackLauncher').focus();
+        }
+
+        function showFeedbackToast(message, isError = false) {
+            const toast = document.getElementById('feedbackToast');
+            toast.textContent = message;
+            toast.classList.toggle('is-error', isError);
+            toast.style.display = 'block';
+            clearTimeout(feedbackToastTimer);
+            feedbackToastTimer = setTimeout(() => {
+                toast.style.display = 'none';
+            }, 4000);
+        }
+
+        document.querySelectorAll('.feedback-star').forEach(star => {
+            star.addEventListener('click', () => setFeedbackRating(Number(star.dataset.rating)));
+        });
+        document.getElementById('feedbackModal').addEventListener('click', event => {
+            if (event.target.id === 'feedbackModal') closeFeedbackModal();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' &&
+                document.getElementById('feedbackModal').style.display === 'flex') {
+                closeFeedbackModal();
+            }
+        });
+        document.getElementById('feedbackForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!selectedFeedbackRating) {
+                document.getElementById('feedbackRatingLabel').textContent = 'Please select a rating.';
+                return;
+            }
+
+            const submitButton = document.getElementById('feedbackSubmit');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + sessionToken
+                    },
+                    body: JSON.stringify({
+                        category: document.getElementById('feedbackCategory').value,
+                        rating: selectedFeedbackRating,
+                        message: document.getElementById('feedbackMessage').value
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to submit feedback.');
+                document.getElementById('feedbackForm').reset();
+                setFeedbackRating(0);
+                document.getElementById('feedbackRatingLabel').textContent = 'Select a rating.';
+                closeFeedbackModal();
+                showFeedbackToast('Thank you! Your feedback has been submitted.');
+            } catch (error) {
+                showFeedbackToast(error.message, true);
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit feedback';
+            }
+        });
+
+        function logout() {
+            stopTelegramConnectionPolling();
+            currentUser = null;
+            sessionToken = null;
+            pendingProfileToken = null;
+            clearPersistedSession();
+            updateUI();
+        }
+
+        async function handleExportAction(selectEl) {
+            const val = selectEl.value;
+            if (val === 'csv') {
+                try {
+                    const response = await fetch('/api/export/requests', {
+                        headers: { Authorization: 'Bearer ' + sessionToken }
+                    });
+                    if (!response.ok) {
+                        const data = await response.json();
+                        alert("Export Error: " + (data.error || "Unable to export requests."));
+                    } else {
+                        const url = URL.createObjectURL(await response.blob());
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = 'security_audit_request_report.csv';
+                        link.click();
+                        URL.revokeObjectURL(url);
+                    }
+                } catch (error) {
+                    alert("Export Error: " + error.message);
+                }
+            } else if (val === 'monthly-report') {
+                try {
+                    const monthKey = getSelectedMonthlyReportKey();
+                    const response = await fetch(`/api/reports/monthly?month=${encodeURIComponent(monthKey)}`, {
+                        headers: { Authorization: 'Bearer ' + sessionToken }
+                    });
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Unable to generate monthly report.');
+                    }
+                    const url = URL.createObjectURL(await response.blob());
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `monthly-request-report-${monthKey}.xlsx`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                } catch (error) {
+                    alert("Monthly Report Error: " + error.message);
+                }
+            } else if (val === 'pdf') {
+                window.print();
+            }
+            selectEl.value = "";
+        }
+
+        async function submitMfaCode() {
+            const code = document.getElementById('mfaCodeInput').value.trim();
+            if (!/^\d{6}$/.test(code)) {
+                alert('Enter the 6-digit verification code.');
+                document.getElementById('mfaCodeInput').focus();
+                return;
+            }
+            try {
+                const res = await fetch('/api/verify-mfa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: pendingMfaEmail, code })
+                });
+                const data = await res.json();
+                if (res.ok && data.user) {
+                    document.getElementById('mfaModal').style.display = 'none';
+                    persistSession(data.user, data.token);
+                    updateUI();
+                    renderDynamicFields();
+                    loadRequests();
+                } else {
+                    alert("MFA Error: " + (data.error || "Invalid verification code"));
+                }
+            } catch(err) {
+                alert("Verification error: " + err.message);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users', {
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load users.');
+                if (!Array.isArray(data)) throw new Error('The server returned an invalid user list.');
+                renderUserTable(data);
+            } catch(err) {
+                console.error("Load users error:", err);
+                const tbody = document.getElementById('userTableBody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    const row = tbody.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 6;
+                    cell.textContent = 'Unable to load users: ' + err.message;
+                }
+            }
+        }
+
+        async function testTelegramNotifications() {
+            const result = document.getElementById('telegramTestResult');
+            result.textContent = 'Sending test notification...';
+            try {
+                const response = await fetch('/api/admin/telegram/test', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Telegram test failed.');
+                result.textContent = data.message;
+            } catch (error) {
+                result.textContent = 'Telegram test failed: ' + error.message;
+            }
+        }
+
+        function renderUserTable(users) {
+            const tbody = document.getElementById('userTableBody');
+            if (!tbody) return;
+            tbody.replaceChildren();
+
+            const departments = ['HR', 'Finance', 'IT', 'Sales & Marketing', 'Warehouse', 'Production', 'Admin'];
+            const roles = [
+                ['STAFF', 'Staff'], ['ASSISTANT', 'Assistant'], ['SUPERVISOR', 'Supervisor'],
+                ['IT_SPECIALIST', 'IT Specialist'], ['MANAGER', 'Manager'], ['DGM', 'DGM'],
+                ['GM', 'GM'], ['ADMIN', 'Admin']
+            ];
+            if (currentUser.role === 'SUPER_ADMIN') {
+                roles.push(['SUPER_ADMIN', 'Super Admin']);
+            }
+
+            users.forEach(user => {
+                const row = tbody.insertRow();
+                const nameCell = row.insertCell();
+                const name = document.createElement('b');
+                name.textContent = user.name || 'Unnamed user';
+                nameCell.appendChild(name);
+                row.insertCell().textContent = user.email || '';
+
+                const departmentCell = row.insertCell();
+                const departmentSelect = document.createElement('select');
+                departments.forEach(department => {
+                    const option = document.createElement('option');
+                    option.value = department;
+                    option.textContent = department;
+                    option.selected = user.department === department;
+                    departmentSelect.appendChild(option);
+                });
+                departmentCell.appendChild(departmentSelect);
+
+                const roleCell = row.insertCell();
+                const roleSelect = document.createElement('select');
+                roles.forEach(([value, label]) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = label;
+                    option.selected = user.role === value;
+                    roleSelect.appendChild(option);
+                });
+                if (user.id === currentUser.id && user.role === 'SUPER_ADMIN') {
+                    roleSelect.disabled = true;
+                    roleSelect.title = 'You cannot remove your own Super Admin access.';
+                }
+                roleCell.appendChild(roleSelect);
+
+                const updateProfile = () => updateUserRoleDept(
+                    user.id,
+                    departmentSelect.value,
+                    roleSelect.value
+                );
+                departmentSelect.addEventListener('change', updateProfile);
+                roleSelect.addEventListener('change', updateProfile);
+
+                const expiryCell = row.insertCell();
+                const expiryInput = document.createElement('input');
+                expiryInput.type = 'date';
+                expiryInput.style.cssText = 'margin:0; padding:6px; font-size:12px;';
+                if (user.accessExpiry && Number.isFinite(Date.parse(user.accessExpiry))) {
+                    expiryInput.value = new Date(user.accessExpiry).toISOString().slice(0, 10);
+                }
+                expiryInput.addEventListener('change', () => setTemporaryAccess(user.id, expiryInput.value));
+                expiryCell.appendChild(expiryInput);
+
+                const actionsCell = row.insertCell();
+                if (user.role !== 'SUPER_ADMIN') {
+                    const deleteButton = document.createElement('button');
+                    deleteButton.type = 'button';
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.style.cssText = 'background: var(--danger); padding: 6px 12px; font-size: 12px;';
+                    deleteButton.addEventListener('click', () => deleteUser(user.id));
+                    actionsCell.appendChild(deleteButton);
+                }
+            });
+        }
+
+        async function updateUserRoleDept(id, dept, role) {
+            try {
+                const res = await fetch('/api/users/' + id, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + sessionToken
+                    },
+                    body: JSON.stringify({ department: dept, role: role })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Unable to update user.');
+                alert("User Role & Department Updated!");
+                loadUsers();
+            } catch(err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        async function setTemporaryAccess(id, expiryDate) {
+            try {
+                const res = await fetch('/api/users/' + id, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + sessionToken
+                    },
+                    body: JSON.stringify({ accessExpiry: expiryDate })
+                });
+                if (res.ok) {
+                    alert("Temporary Time-Bound Access Bounds Applied!");
+                }
+            } catch(err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Are you sure you want to delete this user?")) return;
+            try {
+                const res = await fetch('/api/users/' + id, {
+                    method: 'DELETE',
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                if (res.ok) loadUsers();
+            } catch(err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        function loadRequests() {
+            return filterRequests();
+        }
+
+        function updateAnalytics(counts) {
+            if (!counts) return;
+            document.getElementById('statTotal').innerText =
+                counts.PENDING + counts.APPROVED + counts.REJECTED;
+            document.getElementById('statPending').innerText = counts.PENDING;
+            document.getElementById('statApproved').innerText = counts.APPROVED;
+            document.getElementById('statRejected').innerText = counts.REJECTED;
+        }
+
+        async function filterRequests() {
+            if (!currentUser) return;
+            const loadId = ++requestLoadId;
+            const listDiv = document.getElementById('requestList');
+            if (listDiv) listDiv.setAttribute('aria-busy', 'true');
+            const params = new URLSearchParams({ status: currentRequestTab });
+            const search = document.getElementById('searchKeyword')?.value || '';
+            const category = document.getElementById('filterCategory')?.value || '';
+            if (search.trim()) params.set('search', search.trim());
+            if (category) params.set('category', category);
+
+            try {
+                const res = await fetch('/api/requests?' + params.toString(), {
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load requests.');
+                if (loadId !== requestLoadId) return;
+                if (!Array.isArray(data.requests) || !data.counts) {
+                    throw new Error('The server returned an invalid request list.');
+                }
+                updateAnalytics(data.counts);
+                renderRequests(data.requests);
+                if (listDiv) listDiv.setAttribute('aria-busy', 'false');
+            } catch(err) {
+                console.error(err);
+                if (loadId === requestLoadId) {
+                    if (listDiv) {
+                        listDiv.setAttribute('aria-busy', 'false');
+                        listDiv.innerHTML = '';
+                        const message = document.createElement('p');
+                        message.style.cssText = 'color: var(--danger); padding: 25px; text-align: center;';
+                        message.textContent = 'Unable to load requests: ' + err.message;
+                        listDiv.appendChild(message);
+                    }
+                }
+            }
+        }
+
+        function renderRequests(requests) {
+            const listDiv = document.getElementById('requestList');
+            if (!listDiv) return;
+            listDiv.innerHTML = '';
+            
+            if (!Array.isArray(requests) || requests.length === 0) {
+                listDiv.innerHTML = `<p style="color: var(--text-muted); padding: 25px; text-align: center; background: #0f172a; border-radius: 8px; border: 1px solid var(--border-color);">No <b>${escapeHtml(currentRequestTab)}</b> requests found.</p>`;
+                return;
+            }
+
+            requests.forEach(req => {
+                const userName = req.user ? req.user.name : 'Unknown';
+                const userDept = req.user ? req.user.department : 'N/A';
+                const userRole = req.user ? req.user.role : 'N/A';
+                const requestId = Number.isSafeInteger(Number(req.id)) && Number(req.id) > 0
+                    ? Number(req.id)
+                    : null;
+                const status = ['PENDING', 'APPROVED', 'REJECTED'].includes(req.status)
+                    ? req.status
+                    : 'PENDING';
+                let extraStr = '';
+                try {
+                    const extra = req.extraFields ? JSON.parse(req.extraFields) : {};
+                    const hasQuantity = extra.quantity !== undefined && extra.quantity !== null &&
+                        String(extra.quantity).trim() !== '' && Number.isFinite(Number(extra.quantity));
+                    const itemDetails = extra.items || (!hasQuantity ? extra.quantity : '');
+                    const quantityText = hasQuantity
+                        ? 'Qty: ' + extra.quantity + (extra.quantityUnit ? ' ' + extra.quantityUnit : '')
+                        : '';
+                    const itemText = itemDetails
+                        ? 'Items: ' + itemDetails + (quantityText ? ' (' + quantityText + ')' : '')
+                        : quantityText;
+                    const otherFields = Object.entries(extra)
+                        .filter(([key]) => !['items', 'quantity', 'quantityUnit'].includes(key))
+                        .map(([key, value]) => '<b>' + escapeHtml(key) + ':</b> ' + escapeHtml(value));
+                    extraStr = [itemText ? '<b>' + escapeHtml(itemText) + '</b>' : '', ...otherFields]
+                        .filter(Boolean)
+                        .join(' | ');
+                } catch(e) {}
+
+                let fileLink = '';
+                if (req.attachmentFile) {
+                    fileLink = '<br><small>📎 <b>Attachment:</b> <a href="#" data-file-id="' +
+                        escapeHtml(req.attachmentFile.telegramFileId) + '" data-file-name="' +
+                        escapeHtml(req.attachmentFile.fileName) +
+                        '" onclick="downloadRequestAttachment(this); return false;" style="color: #818cf8;">' +
+                        escapeHtml(req.attachmentFile.fileName) + '</a></small>';
+                } else if (req.attachment) {
+                    const legacyFileName = String(req.attachment).replace(/\\/g, '/').split('/').pop();
+                    fileLink = '<br><small>📎 <b>Legacy attachment:</b> <a href="#" data-legacy-file="' +
+                        escapeHtml(legacyFileName) +
+                        '" onclick="downloadLegacyRequestAttachment(this); return false;" style="color: #818cf8;">' +
+                        escapeHtml(legacyFileName) + '</a></small>';
+                }
+                const formattedDate = req.createdAt ? new Date(req.createdAt).toLocaleString() : 'N/A';
+
+                let auditHtml = '';
+                if (req.auditLogs && req.auditLogs.length > 0) {
+                    auditHtml = '<div class="audit-history-box"><strong>📜 Audit Trail Logs:</strong>';
+                    req.auditLogs.forEach(log => {
+                        const logTime = new Date(log.createdAt).toLocaleString();
+                        const actor = log.user
+                            ? `${escapeHtml(log.user.name)} (${escapeHtml(log.user.role)})`
+                            : 'System';
+                        auditHtml += `<div class="audit-entry">⏱ <b>${escapeHtml(log.action)}</b> by ${actor} on ${escapeHtml(logTime)} - <i>${escapeHtml(log.remarks || 'No remarks')}</i></div>`;
+                    });
+                    auditHtml += '</div>';
+                }
+
+                const currentStep = req.approvalSteps?.find(
+                    step => step.sequence === req.currentApprovalStep && step.status === 'PENDING'
+                );
+                const canAction = req.status === 'PENDING' && currentUser &&
+                    req.userId !== currentUser.id && currentStep &&
+                    (currentStep.approverRole === 'EXECUTIVE'
+                        ? ['GM', 'DGM'].includes(currentUser.role)
+                        : ['MANAGER', 'SUPERVISOR'].includes(currentUser.role) &&
+                            String(currentStep.department || '').trim().toLowerCase() ===
+                                String(currentUser.department || '').trim().toLowerCase());
+
+                let actionButtons = '';
+                if (canAction && requestId !== null) {
+                    actionButtons = '<div>' +
+                        '<button type="button" class="btn-approve" onclick="updateStatus(' + requestId + ', \'APPROVED\')">Approve</button>' +
+                        '<button type="button" class="btn-reject" onclick="updateStatus(' + requestId + ', \'REJECTED\')">Reject</button>' +
+                    '</div>';
+                }
+
+                listDiv.innerHTML += '<div class="request-item">' +
+                    '<div class="request-header">' +
+                        '<div>' +
+                            '<strong>' + escapeHtml(req.title) + '</strong> [<b>' + escapeHtml(req.category) + '</b>] <span class="status-' + status + '">[' + status + ']</span> ' +
+                            '<span class="stage-badge">Workflow Stage: ' + escapeHtml(req.approvalStage) + '</span><br>' +
+                            '<span class="timestamp">📅 Submitted: ' + escapeHtml(formattedDate) + ' | 🎯 Target: <b>' + escapeHtml(req.targetDepartment || 'General') + '</b></span><br>' +
+                            '<small style="color: #cbd5e1;">' + escapeHtml(req.description || 'No description') + '</small><br>' +
+                            (extraStr ? '<small style="color:#818cf8;">' + extraStr + '</small><br>' : '') +
+                            fileLink + '<br>' +
+                            '<em>Submitted By: ' + escapeHtml(userName) + ' (' + escapeHtml(userDept) + ' - ' + escapeHtml(userRole) + ')</em>' +
+                        '</div>' +
+                        actionButtons +
+                    '</div>' +
+                    auditHtml +
+                '</div>';
+            });
+        }
+
+        async function downloadRequestAttachment(link) {
+            await downloadAttachment(
+                '/api/files/' + encodeURIComponent(link.dataset.fileId),
+                link.dataset.fileName || 'attachment'
+            );
+        }
+
+        async function downloadLegacyRequestAttachment(link) {
+            await downloadAttachment(
+                '/api/legacy-files/' + encodeURIComponent(link.dataset.legacyFile),
+                link.dataset.legacyFile || 'attachment'
+            );
+        }
+
+        async function downloadAttachment(url, fileName) {
+            try {
+                const response = await fetch(url, {
+                    headers: { Authorization: 'Bearer ' + sessionToken }
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Unable to download attachment.');
+                }
+                const objectUrl = URL.createObjectURL(await response.blob());
+                const downloadLink = document.createElement('a');
+                downloadLink.href = objectUrl;
+                downloadLink.download = fileName || 'attachment';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                downloadLink.remove();
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            } catch (error) {
+                alert('Attachment download failed: ' + error.message);
+            }
+        }
+
+        async function updateStatus(id, status) {
+            const remarks = prompt(`Enter optional audit remarks for ${status}:`);
+            if (remarks === null) return;
+            try {
+                const res = await fetch(`/api/requests/${id}/approval`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${sessionToken}`
+                    },
+                    body: JSON.stringify({ status, remarks })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    loadRequests();
+                } else {
+                    alert("Action Denied: " + (data.error || "Failed to update status"));
+                }
+            } catch(err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDynamicFields();
+            void restoreSession();
+            loadTelegramWidgets().catch(error => {
+                console.error('Telegram widget initialization failed:', error);
+            });
+            window.addEventListener('focus', () => {
+                void refreshTelegramConnectionStatus();
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) void refreshTelegramConnectionStatus();
+            });
+
+            document.getElementById('completeProfileForm')?.addEventListener('submit', async event => {
+                event.preventDefault();
+                const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+                if (submitButton) submitButton.disabled = true;
+                try {
+                    const response = await fetch('/api/user/complete-profile', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: 'Bearer ' + pendingProfileToken
+                        },
+                        body: JSON.stringify({
+                            department: document.getElementById('onboardingDepartment').value,
+                            role: document.getElementById('onboardingRole').value
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.user) {
+                        throw new Error(data.error || 'Unable to complete your profile.');
+                    }
+                    currentUser = data.user;
+                    sessionToken = pendingProfileToken;
+                    persistSession(data.user, sessionToken);
+                    pendingProfileToken = null;
+                    document.getElementById('completeProfileModal').style.display = 'none';
+                    event.currentTarget.reset();
+                    updateUI();
+                    renderDynamicFields();
+                    loadRequests();
+                } catch (error) {
+                    alert('Profile Error: ' + error.message);
+                } finally {
+                    if (submitButton) submitButton.disabled = false;
+                }
+            });
+
+            const userForm = document.getElementById('userForm');
+            if (userForm) {
+                userForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const submitButton = userForm.querySelector('button[type="submit"]');
+                    const name = document.getElementById('regName').value;
+                    const email = document.getElementById('regEmail').value;
+                    const password = document.getElementById('regPassword').value;
+                    const department = document.getElementById('regDept').value;
+                    const role = document.getElementById('regRole').value;
+
+                    if (submitButton) submitButton.disabled = true;
+                    try {
+                        const res = await fetch('/api/users', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name, email, password, department, role })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            alert("Registration Error: " + (data.error || "Unable to create account."));
+                            return;
+                        }
+
+                        registrationTelegramLink = data.telegramLinkUrl || null;
+                        userForm.reset();
+                        document.getElementById('loginEmail').value = email.trim();
+                        const connectButton = document.getElementById('telegramRegisterConnectButton');
+                        const connectStatus = document.getElementById('telegramRegisterStatus');
+                        if (connectButton) connectButton.disabled = !registrationTelegramLink;
+                        if (connectStatus) {
+                            connectStatus.textContent = registrationTelegramLink
+                                ? 'Account created. Connect Telegram now; this one-time link expires in 10 minutes. Then sign in.'
+                                : 'Account created, but a Telegram link could not be generated. Sign in and connect it from your account panel.';
+                        }
+                    } catch (err) {
+                        alert("Registration Error: " + err.message);
+                    } finally {
+                        if (submitButton) submitButton.disabled = false;
+                    }
+                });
+            }
+
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('loginEmail').value.trim();
+                    const password = document.getElementById('loginPassword').value;
+                    const submitButton = loginForm.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Signing in…';
+
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            if (data.requiresMfa) {
+                                pendingMfaEmail = data.email;
+                                document.getElementById('mfaModal').style.display = 'flex';
+                                document.getElementById('mfaCodeInput').focus();
+                            } else if (data.user) {
+                                persistSession(data.user, data.token);
+                                updateUI();
+                                renderDynamicFields();
+                                loadRequests();
+                            }
+                        } else {
+                            alert("Login Failed: " + (data.error || "Invalid Credentials"));
+                        }
+                    } catch (err) {
+                        alert("Network Error: " + err.message);
+                    } finally {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Sign In';
+                    }
+                });
+            }
+
+            const requestForm = document.getElementById('requestForm');
+            if (requestForm) {
+                requestForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const submitButton = document.getElementById('requestSubmitButton');
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Submitting…';
+                    
+                    const formData = new FormData();
+                    formData.append('title', document.getElementById('title').value);
+                    const dialogCategory = document.getElementById('category').value;
+                    const canSelectTargetDepartment = currentUser.role !== 'STAFF' ||
+                        String(currentUser.department || '').trim().toLowerCase() === 'admin';
+                    const targetDept = canSelectTargetDepartment
+                        ? document.getElementById('targetDepartment').value
+                        : currentUser.department;
+                    formData.append('targetDepartment', targetDept);
+                    formData.append(
+                        'requiresExecutiveApproval',
+                        String(document.getElementById('requiresExecutiveApproval').checked)
+                    );
+                    formData.append('category', dialogCategory);
+                    formData.append('description', document.getElementById('description').value);
+
+                    const extraFields = {};
+                    if (dialogCategory === 'Purchase') {
+                        extraFields.amount = document.getElementById('dyn_amount')?.value;
+                        extraFields.items = document.getElementById('dyn_items')?.value.trim();
+                        extraFields.quantity = document.getElementById('dyn_quantity')?.value;
+                        extraFields.quantityUnit = document.getElementById('dyn_quantityUnit')?.value.trim();
+                    } else if (dialogCategory === 'Finance' || dialogCategory === 'Withdrawal') {
+                        extraFields.amount = document.getElementById('dyn_amount')?.value;
+                    } else if (dialogCategory === 'Leave') {
+                        extraFields.leaveType = document.getElementById('dyn_leaveType')?.value;
+                        extraFields.days = document.getElementById('dyn_days')?.value;
+                    } else if (dialogCategory === 'Maintenance') {
+                        extraFields.location = document.getElementById('dyn_location')?.value;
+                        extraFields.urgency = document.getElementById('dyn_urgency')?.value;
+                    } else if (dialogCategory === 'Gate Pass') {
+                        extraFields.passType = document.getElementById('dyn_passType')?.value;
+                        extraFields.passHolder = document.getElementById('dyn_passHolder')?.value;
+                        extraFields.passPurpose = document.getElementById('dyn_passPurpose')?.value;
+                        extraFields.passDate = document.getElementById('dyn_passDate')?.value;
+                        if (extraFields.passType === 'Vehicle') {
+                            extraFields.vehicleType = document.getElementById('dyn_gateVehicleType')?.value;
+                            extraFields.vehicleNumber = document.getElementById('dyn_gateVehicleNumber')?.value;
+                            extraFields.driverDetailsAvailable = document.getElementById('dyn_gateDriverRequired')?.value;
+                            if (extraFields.driverDetailsAvailable === 'Yes') {
+                                extraFields.driverName = document.getElementById('dyn_gateDriverName')?.value;
+                                extraFields.driverPhone = document.getElementById('dyn_gateDriverPhone')?.value;
+                            }
+                        }
+                    } else if (dialogCategory === 'Car Request') {
+                        extraFields.purpose = document.getElementById('dyn_carPurpose')?.value;
+                        extraFields.destination = document.getElementById('dyn_carDestination')?.value;
+                        extraFields.travelDate = document.getElementById('dyn_carDate')?.value;
+                        extraFields.pickupTime = document.getElementById('dyn_carTime')?.value;
+                        extraFields.passengers = document.getElementById('dyn_carPassengers')?.value;
+                        extraFields.vehicleRequired = document.getElementById('dyn_carVehicleNeeded')?.value;
+                        if (extraFields.vehicleRequired === 'Yes') {
+                            extraFields.vehicleType = document.getElementById('dyn_carVehicleType')?.value;
+                        }
+                        extraFields.driverRequired = document.getElementById('dyn_carDriverNeeded')?.value;
+                        if (extraFields.driverRequired === 'Yes') {
+                            extraFields.driverName = document.getElementById('dyn_carDriverName')?.value;
+                            extraFields.driverPhone = document.getElementById('dyn_carDriverPhone')?.value;
+                        }
+                    }
+                    formData.append('extraFields', JSON.stringify(extraFields));
+
+                    const fileInput = document.getElementById('attachment');
+                    if (fileInput && fileInput.files[0]) {
+                        formData.append('attachment', fileInput.files[0]);
+                    }
+
+                    try {
+                        const res = await fetch('/api/requests', {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${sessionToken}` },
+                            body: formData
+                        });
+                        if (res.ok) {
+                            alert("Request submitted successfully into the approval workflow.");
+                            requestForm.reset();
+                            renderDynamicFields();
+                            loadRequests();
+                        } else {
+                            const data = await res.json();
+                            alert("Request submission failed: " + (data.error || "Please try again."));
+                        }
+                    } catch(err) {
+                        alert("Submit Error: " + err.message);
+                    } finally {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Submit Request';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

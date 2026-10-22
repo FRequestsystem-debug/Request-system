@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+enum Role {
+  STAFF
+  ASSISTANT
+  SUPERVISOR
+  IT_SPECIALIST
+  MANAGER
+  DGM
+  GM
+  ADMIN
+  SUPER_ADMIN
+  USER
+  HR
+}
+
+model User {
+  id                  Int                   @id @default(autoincrement())
+  email               String                @unique
+  password            String
+  name                String?
+  department          String?
+  role                Role?                 @default(USER)
+  telegramId          String?               @unique
+  telegramUsername    String?
+  telegramFirstName   String?
+  otp                 String?
+  otpExpiry           DateTime?
+  createdAt           DateTime              @default(now())
+  requests            Request[]
+  feedback            Feedback[]
+  auditLogs           AuditLog[]
+  approvalSteps       RequestApprovalStep[] @relation("RequestStepApprover")
+  uploadedAttachments Attachment[]          @relation("RequestAttachmentUploader")
+  telegramLinkTokens  TelegramLinkToken[]
+}
+
+model TelegramLinkToken {
+  tokenHash  String    @id
+  userId     Int
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Request {
+  id                        Int                   @id @default(autoincrement())
+  title                     String
+  description               String?
+  category                  String                @default("General")
+  status                    String                @default("PENDING")
+  targetDepartment          String?               @default("General") // Cross-Department Request Target
+  requiresExecutiveApproval Boolean               @default(false)
+  approvalStage             String?               @default("PENDING")
+  currentApprovalStep       Int                   @default(0)
+  adminManagerApprovedBy    Int?
+  financeManagerApprovedBy  Int?
+  extraFields               String?
+  attachment                String?
+  userId                    Int
+  user                      User                  @relation(fields: [userId], references: [id])
+  auditLogs                 AuditLog[]
+  approvalSteps             RequestApprovalStep[]
+  attachmentFile            Attachment?
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @default(now()) @updatedAt
+
+  @@index([status, currentApprovalStep])
+}
+
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  category  String
+  rating    Int
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id             Int      @id @default(autoincrement())
+  requestId      Int      @unique
+  telegramFileId String
+  fileName       String
+  mimeType       String
+  fileSize       Int
+  publicUrl      String
+  uploadedById   Int
+  createdAt      DateTime @default(now())
+  request        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploadedBy     User     @relation("RequestAttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([telegramFileId])
+}
+
+model RequestApprovalStep {
+  id           Int       @id @default(autoincrement())
+  requestId    Int
+  sequence     Int
+  stepType     String
+  department   String?
+  approverRole String
+  status       String    @default("PENDING")
+  approvedById Int?
+  remarks      String?
+  actedAt      DateTime?
+  createdAt    DateTime  @default(now())
+  request      Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approvedBy   User?     @relation("RequestStepApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, sequence])
+  @@index([department, approverRole, status])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String // e.g., "APPROVED", "REJECTED", "SUBMITTED"
+  remarks   String?
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  requestId Int
+  request   Request  @relation(fields: [requestId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model MonthlyReport {
+  id                Int       @id @default(autoincrement())
+  monthKey          String    @unique
+  periodStart       DateTime
+  periodEnd         DateTime
+  totalRequests     Int       @default(0)
+  pendingCount      Int       @default(0)
+  approvedCount     Int       @default(0)
+  rejectedCount     Int       @default(0)
+  generatedAt       DateTime  @default(now())
+  telegramClaimedAt DateTime?
+  telegramSentAt    DateTime?
+}
